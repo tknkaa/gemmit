@@ -35,7 +35,7 @@ async fn main() {
         Err(_) => println!("Failed to ask AI"),
     }
 
-    print!("Do you want to commit with this message? [Y/n] ");
+    println!("Do you want to commit with this message? [Y/n] ");
 
     let mut input = String::new();
     io::stdin()
