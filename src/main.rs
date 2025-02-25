@@ -1,12 +1,12 @@
 mod ai;
 mod config;
+mod git_commit;
 mod git_diff;
 
 use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
 use std::io;
-use std::process::Command;
 use tokio;
 
 #[tokio::main]
@@ -39,19 +39,9 @@ async fn main() {
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("msg");
     let input = input.trim().to_lowercase();
-    //println!("{input}");
 
     if input == "y" {
-        let output = Command::new("git")
-            .args(["commit", "-m", &message])
-            .output()
-            .unwrap();
-
-        if output.status.success() {
-            println!("Commit successful");
-        } else {
-            eprintln!("Commit failed: {}", String::from_utf8_lossy(&output.stderr));
-        }
+        git_commit::commit(&message);
     } else {
         println!("Commit canceled.");
     }
