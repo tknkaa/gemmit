@@ -30,17 +30,20 @@ async fn main() {
     match ask_ai(&api_key, &prompt).await {
         Ok(response) => {
             message.push_str(&response);
-            println!("{response}")
+            println!("{response}");
         }
         Err(_) => println!("Failed to ask AI"),
     }
 
-    println!("Do you want to commit with this message?[Y/n]");
+    print!("Do you want to commit with this message? [Y/n] ");
+
     let mut input = String::new();
-    io::stdin().read_line(&mut input).expect("msg");
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read input");
     let input = input.trim().to_lowercase();
 
-    if input == "y" {
+    if input == "y" || input.is_empty() {
         git_commit::commit(&message);
     } else {
         println!("Commit canceled.");
