@@ -6,7 +6,7 @@ mod git_diff;
 use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
-use std::io;
+use std::io::{self, Write};
 use tokio;
 
 #[tokio::main]
@@ -35,7 +35,8 @@ async fn main() {
         Err(_) => println!("Failed to ask AI"),
     }
 
-    println!("Do you want to commit with this message? [Y/n] ");
+    print!("Do you want to commit with this message? [Y/n] ");
+    io::stdout().flush().unwrap();
 
     let mut input = String::new();
     io::stdin()
