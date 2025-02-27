@@ -5,24 +5,15 @@ mod git_diff;
 
 use ai::ask_ai;
 use config::load_api_key;
-use git2::opts::get_mwindow_file_limit;
 use git_diff::get_git_diff;
+use git2::opts::get_mwindow_file_limit;
 use reqwest::get;
 use std::io::{self, Write};
 use tokio;
 
 #[tokio::main]
 async fn main() {
-    match get_git_diff() {
-        Ok(sth) => {
-            println!("{sth}")
-        },
-        Err(_) => {
-            println!("error")
-        },
-    };
-
-/*     println!("Gemini suggested the following commit message.");
+    println!("Gemini suggested the following commit message.");
     let prompt_diff = match get_git_diff() {
         Ok(diff) => diff,
         Err(_) => {
@@ -59,5 +50,5 @@ async fn main() {
         git_commit::commit(&message);
     } else {
         println!("Commit canceled.");
-    } */
+    }
 }
