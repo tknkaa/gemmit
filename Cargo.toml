@@ -1,5 +1,5 @@
 [package]
-name = "ai_committer"
+name = "gemmit"
 version = "0.1.0"
 edition = "2024"
 
