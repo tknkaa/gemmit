@@ -6,8 +6,6 @@ mod git_diff;
 use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
-use git2::opts::get_mwindow_file_limit;
-use reqwest::get;
 use std::io::{self, Write};
 use tokio;
 
