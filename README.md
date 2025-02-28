@@ -13,3 +13,29 @@ npm login
 cd pkg
 npm publish --access public
 ```
+
+## Installation
+
+Via Nix Flakes
+
+```nix
+{
+  inputs = {
+    # other inputs...
+    gemmit.url = "github:tknkaa/gemmit";
+    gemmit.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = inputs: let
+    system = "x86_64-linux";
+    pkgs = inputs.nixpkgs.legacyPackages.${system};
+  in {
+    devShells.${system}.default = pkgs.mkShell {
+      packages = [
+        # use `inputs.gemmit.packages.${system}.default` to install gemmit
+        inputs.gemmit.packages.${system}.default
+      ];
+    };
+  };
+}
+```
