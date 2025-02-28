@@ -23,6 +23,7 @@
       toolchain = pkgs.rust-bin.stable.latest.default;
       package = pkgs.callPackage ./default.nix {inherit version toolchain;};
     in {
+      formatter = pkgs.alejandra;
       devShells.default = pkgs.mkShell {
         packages = [toolchain];
       };
