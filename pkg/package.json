@@ -1,11 +1,11 @@
 {
     "name": "@tknkaa/gemmit",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A CLI tool to generate commit messages with Gemini API",
     "bin": {
-      "gemmit": "./gemmit"
+        "gemmit": "./gemmit"
     },
     "scripts": {
-      "start": "gemmit"
+        "start": "gemmit"
     }
 }
