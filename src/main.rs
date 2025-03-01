@@ -52,6 +52,6 @@ async fn main() {
     if input == "y" || input.is_empty() {
         git_commit::commit(&message);
     } else {
-        println!("Commit canceled.");
+        panic!("Commit canceled.");
     }
 }
