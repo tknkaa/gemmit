@@ -50,7 +50,14 @@ async fn main() {
     let input = input.trim().to_lowercase();
 
     if input == "y" || input.is_empty() {
-        git_commit::commit(&message);
+        match git_commit::commit(&message) {
+            Ok(()) => {
+                println!("Commit successful");
+            }
+            Err(e) => {
+                panic!("Error: {}", e);
+            }
+        }
     } else {
         panic!("Commit canceled.");
     }
