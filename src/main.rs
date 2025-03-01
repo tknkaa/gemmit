@@ -11,12 +11,10 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    println!("Gemini suggested the following commit message.");
     let prompt_diff = match get_git_diff() {
         Ok(diff) => diff,
         Err(_) => {
-            println!("Failed to get git diff");
-            return;
+            panic!("Failed to get git diff");
         }
     };
 
@@ -29,10 +27,11 @@ async fn main() {
     let mut message = String::new();
     match ask_ai(&api_key, &prompt).await {
         Ok(response) => {
+            println!("Gemini suggested the following commit message.");
             message.push_str(&response);
             println!("{response}");
         }
-        Err(_) => println!("Failed to ask AI"),
+        Err(_) => panic!("Failed to ask Gemini"),
     }
 
     print!("Do you want to commit with this message? [Y/n] ");
