@@ -35,11 +35,11 @@ async fn main() {
         Ok(response) => {
             println!("Gemini suggested the following commit message.");
             message.push_str(&response);
-            println!("{response}");
+            print!("{response}");
         }
         Err(_) => panic!("Failed to ask Gemini"),
     }
-
+//blank line here
     print!("Do you want to commit with this message? [Y/n] ");
     io::stdout().flush().expect("Failed to flush stdout.");
 
