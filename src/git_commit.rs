@@ -1,14 +1,16 @@
-use std::process::Command;
+use std::{io, process::Command};
 
-pub fn commit(message: &str) {
+pub fn commit(message: &str) -> Result<(), io::Error> {
     let output = Command::new("git")
         .args(["commit", "-m", &message])
-        .output()
-        .unwrap();
+        .output()?;
 
     if output.status.success() {
-        println!("Commit successful");
+        Ok(())
     } else {
-        eprintln!("Commit failed: {}", String::from_utf8_lossy(&output.stderr));
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            String::from_utf8_lossy(&output.stderr),
+        ))
     }
 }
