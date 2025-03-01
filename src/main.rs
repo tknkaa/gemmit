@@ -39,7 +39,7 @@ async fn main() {
         }
         Err(_) => panic!("Failed to ask Gemini"),
     }
-//blank line here
+
     print!("Do you want to commit with this message? [Y/n] ");
     io::stdout().flush().expect("Failed to flush stdout.");
 
