@@ -18,7 +18,7 @@ async fn main() {
             } else {
                 diff
             }
-        },
+        }
         Err(_) => {
             panic!("Failed to get git diff");
         }
