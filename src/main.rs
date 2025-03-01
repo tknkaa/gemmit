@@ -12,7 +12,13 @@ use tokio;
 #[tokio::main]
 async fn main() {
     let prompt_diff = match get_git_diff() {
-        Ok(diff) => diff,
+        Ok(diff) => {
+            if diff.trim().is_empty() {
+                panic!("Git diff is empty. No changes detected.");
+            } else {
+                diff
+            }
+        },
         Err(_) => {
             panic!("Failed to get git diff");
         }
