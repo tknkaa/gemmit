@@ -41,7 +41,7 @@ async fn main() {
     }
 
     print!("Do you want to commit with this message? [Y/n] ");
-    io::stdout().flush().unwrap();
+    io::stdout().flush().expect("Failed to flush stdout.");
 
     let mut input = String::new();
     io::stdin()
