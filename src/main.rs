@@ -7,6 +7,7 @@ use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
 use std::io::{self, Write};
+use std::process;
 use tokio;
 
 #[tokio::main]
@@ -14,13 +15,15 @@ async fn main() {
     let prompt_diff = match get_git_diff() {
         Ok(diff) => {
             if diff.trim().is_empty() {
-                panic!("Git diff is empty. No changes detected.");
+                eprintln!("Git diff is empty. No changes detected.");
+                process::exit(1);
             } else {
                 diff
             }
         }
         Err(_) => {
-            panic!("Failed to get git diff");
+            eprintln!("Failed to get git diff");
+            process::exit(1);
         }
     };
 
@@ -34,10 +37,18 @@ async fn main() {
     match ask_ai(&api_key, &prompt).await {
         Ok(response) => {
             println!("Gemini suggested the following commit message.");
-            message.push_str(&response);
-            print!("{response}");
+            let response = response.trim().to_string();
+
+            if !response.is_empty() {
+                message.push_str(&response);
+            }
+
+            println!("> {response}");
         }
-        Err(_) => panic!("Failed to ask Gemini"),
+        Err(_) => {
+            eprintln!("Failed to ask Gemini");
+            process::exit(1);
+        }
     }
 
     print!("Do you want to commit with this message? [Y/n] ");
@@ -55,10 +66,12 @@ async fn main() {
                 println!("Commit successful");
             }
             Err(e) => {
-                panic!("Error: {}", e);
+                eprintln!("Error: {}", e);
+                process::exit(1);
             }
         }
     } else {
-        panic!("Commit canceled.");
+        eprintln!("Commit canceled.");
+        process::exit(1);
     }
 }
