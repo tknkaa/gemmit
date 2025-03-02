@@ -7,7 +7,7 @@ use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
 use std::io::{self, Write};
-use std::process::{self, exit};
+use std::process;
 use tokio;
 
 #[tokio::main]
