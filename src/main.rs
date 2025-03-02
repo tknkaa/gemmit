@@ -36,10 +36,15 @@ async fn main() {
     let mut message = String::new();
     match ask_ai(&api_key, &prompt).await {
         Ok(response) => {
-            println!("Gemini suggested the following commit message.");
-            message.push_str(&response);
-            print!("{response}");
-        }
+            println!("Gemini suggested the following commit message:");
+            let response = response.trim().to_string();
+            
+            if !response.is_empty() {
+                message.push_str(&response);
+            }
+        
+            println!("> {response}");
+        },
         Err(_) => {
             eprintln!("Failed to ask Gemini");
             process::exit(1);
