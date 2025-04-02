@@ -19,24 +19,17 @@ async fn main() {
         prompt_diff
     );
 
-    let mut message = String::new();
-    match ask_ai(&api_key, &prompt).await {
-        Ok(response) => {
-            println!("Gemini suggested the following commit message.");
-            let response = response.trim().to_string();
-
-            if !response.is_empty() {
-                message.push_str(&response);
-            }
-
-            println!("> {response}");
-        }
-        Err(_) => {
-            eprintln!("Failed to ask Gemini");
+    let response = ask_ai(&api_key, &prompt)
+        .await
+        .unwrap_or_else(|_| {
+            eprintln!("Failed to ask Gemini.");
             process::exit(1);
-        }
-    }
+        })
+        .trim()
+        .to_string();
 
+    println!("Gemini suggested the following commit message");
+    println!("> {response}");
     print!("Do you want to commit with this message? [Y/n] ");
     io::stdout().flush().expect("Failed to flush stdout.");
 
@@ -47,7 +40,7 @@ async fn main() {
     let input = input.trim().to_lowercase();
 
     if input == "y" || input.is_empty() {
-        match git_commit::commit(&message) {
+        match git_commit::commit(&response) {
             Ok(()) => {
                 println!("Commit successful");
             }
