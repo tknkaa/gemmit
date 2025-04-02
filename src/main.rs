@@ -15,7 +15,7 @@ async fn main() {
     let prompt_diff = get_git_diff();
     let api_key = load_api_key();
     let prompt = format!(
-        "Based on the following changes, suggest a concise and appropriate commit message: {}. Just the commit message, please.",
+        "Given the following changes, provide a concise and meaningful commit message: {}. Please only return the commit message.",
         prompt_diff
     );
 
