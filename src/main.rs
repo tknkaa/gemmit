@@ -19,14 +19,7 @@ async fn main() {
         prompt_diff
     );
 
-    let response = ask_ai(&api_key, &prompt)
-        .await
-        .unwrap_or_else(|_| {
-            eprintln!("Failed to ask Gemini.");
-            process::exit(1);
-        })
-        .trim()
-        .to_string();
+    let response = ask_ai(&api_key, &prompt).await;
 
     println!("Gemini suggested the following commit message");
     println!("> {response}");
