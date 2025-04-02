@@ -56,5 +56,8 @@ fn parse_response(response: &str) -> String {
         .and_then(|parts| parts.get(0))
         .and_then(|part| part["text"].as_str())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| "No response from AI".to_string()) //異常終了させるべき
+        .unwrap_or_else(|| {
+            eprintln!("No response from Gemini.");
+            process::exit(1);
+        })
 }
