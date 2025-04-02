@@ -1,17 +1,19 @@
-use std::io;
-use std::process::Command;
+use std::process::{Command, exit};
 
-pub fn get_git_diff() -> Result<String, io::Error> {
-    let output = Command::new("git").args(["diff", "--cached"]).output()?;
+pub fn get_git_diff() -> String {
+    let output = match Command::new("git").args(["diff", "--cached"]).output() {
+        Ok(output) => output,
+        Err(err) => {
+            eprintln!("git diff --cached failed with status: {}", err);
+            exit(1);
+        }
+    };
 
-    if !output.status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("git diff --cached failed with status: {}", output.status),
-        ));
+    let diff = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if diff.is_empty() {
+        eprintln!("no changes added to commit");
+        exit(1);
     }
 
-    let diff = String::from_utf8_lossy(&output.stdout).to_string();
-
-    Ok(diff)
+    diff
 }

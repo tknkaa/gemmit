@@ -12,18 +12,7 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    let prompt_diff = match get_git_diff() {
-        Ok(diff) if diff.trim().is_empty() => {
-            eprintln!("no changes added to commit");
-            process::exit(1);
-        }
-        Ok(diff) => diff,
-        Err(err) => {
-            eprintln!("{}", err);
-            process::exit(1);
-        }
-    };
-
+    let prompt_diff = get_git_diff();
     let api_key = load_api_key();
     let prompt = format!(
         "Based on the following changes, suggest a concise and appropriate commit message: {}. Just the commit message, please.",
