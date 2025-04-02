@@ -13,16 +13,13 @@ use tokio;
 #[tokio::main]
 async fn main() {
     let prompt_diff = match get_git_diff() {
-        Ok(diff) => {
-            if diff.trim().is_empty() {
-                eprintln!("Git diff is empty. No changes detected.");
-                process::exit(1);
-            } else {
-                diff
-            }
+        Ok(diff) if diff.trim().is_empty() => {
+            eprintln!("no changes added to commit");
+            process::exit(1);
         }
-        Err(_) => {
-            eprintln!("Failed to get git diff");
+        Ok(diff) => diff,
+        Err(err) => {
+            eprintln!("{}", err);
             process::exit(1);
         }
     };
