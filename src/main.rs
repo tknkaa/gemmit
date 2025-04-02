@@ -7,7 +7,6 @@ use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
 use std::io::{self, Write};
-use std::process;
 use tokio;
 
 #[tokio::main]
@@ -32,18 +31,5 @@ async fn main() {
         .expect("Failed to read input");
     let input = input.trim().to_lowercase();
 
-    if input == "y" || input.is_empty() {
-        match git_commit::commit(&response) {
-            Ok(()) => {
-                println!("Commit successful");
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        }
-    } else {
-        eprintln!("Commit canceled.");
-        process::exit(1);
-    }
+    git_commit::commit(&response, &input);
 }

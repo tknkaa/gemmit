@@ -1,16 +1,21 @@
-use std::{io, process::Command};
+use std::{process, process::Command};
 
-pub fn commit(message: &str) -> Result<(), io::Error> {
-    let output = Command::new("git")
-        .args(["commit", "-m", &message])
-        .output()?;
-
-    if output.status.success() {
-        Ok(())
+pub fn commit(message: &str, input: &str) {
+    if input == "y" || input.is_empty() {
+        match Command::new("git")
+            .args(["commit", "-m", &message])
+            .output()
+        {
+            Ok(_) => {
+                println!("Commit successful.");
+            }
+            Err(err) => {
+                eprintln!("Error: {}", err);
+                process::exit(1);
+            }
+        }
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            String::from_utf8_lossy(&output.stderr),
-        ))
+        eprintln!("Commit canceled.");
+        process::exit(1);
     }
 }
