@@ -2,10 +2,12 @@ mod ai;
 mod config;
 mod git_commit;
 mod git_diff;
+mod handle_input;
 
 use ai::ask_ai;
 use config::load_api_key;
 use git_diff::get_git_diff;
+use handle_input::handle_input;
 use std::io::{self, Write};
 use tokio;
 
@@ -25,11 +27,7 @@ async fn main() {
     print!("Do you want to commit with this message? [Y/n] ");
     io::stdout().flush().expect("Failed to flush stdout.");
 
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read input");
-    let input = input.trim().to_lowercase();
+    let input = handle_input();
 
     git_commit::commit(&response, &input);
 }
