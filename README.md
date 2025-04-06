@@ -19,6 +19,12 @@ npm publish --access public
 
 ## Installation
 
+Run directly (automatically builds if needed)
+
+```sh
+nix run github:tknkaa/gemmit
+```
+
 Via Nix Flakes
 
 ```nix
@@ -42,3 +48,4 @@ Via Nix Flakes
   };
 }
 ```
+
