@@ -11,3 +11,5 @@ npm i @tknkaa/gemmit
 git add -A
 npx gemmit
 ```
+
+Pull requests and issues are always welcome! [GitHub](https://github.com/tknkaa/gemmit)
