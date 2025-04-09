@@ -11,9 +11,9 @@ cargo build --release
 cp target/release/gemmit pkg/
 npm login
 cd pkg
-npm version patch # パッチバージョンを更新
-npm version minor # マイナーバージョンを更新
-npm version major # メジャーバージョンを更新
+npm version patch # update patch version
+npm version minor # update minor version
+npm version major # update major version
 npm publish --access public
 ```
 
@@ -48,4 +48,3 @@ Via Nix Flakes
   };
 }
 ```
-
