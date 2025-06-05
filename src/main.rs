@@ -10,11 +10,11 @@ use std::{io, process};
 
 #[tokio::main]
 async fn main() {
-    let _args = Args::parse();
+    let args = Args::parse();
     let api_key = config::load_api_key();
     let diff = git::get_git_diff_output();
     let filepath = "assets/prompt.txt";
-    let prompt = prompt::create_prompt(&diff, filepath);
+    let prompt = prompt::create_prompt(&diff, filepath, &args);
     let raw_message = llm::get_commit_message(&api_key, &prompt).await;
     let commit_message = raw_message.trim();
     print!(
