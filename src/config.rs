@@ -1,5 +1,4 @@
-use std::env;
-use std::process;
+use std::{env, process};
 
 pub fn load_api_key() -> String {
     match env::var("GEMINI_API_KEY") {
