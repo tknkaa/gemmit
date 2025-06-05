@@ -19,22 +19,17 @@ pub fn get_git_diff_output() -> String {
     diff
 }
 
-pub fn run_git_commit(message: &str, input: &str) {
-    if input == "y" || input.is_empty() {
-        match Command::new("git")
-            .args(["commit", "-m", &message])
-            .output()
-        {
-            Ok(_) => {
-                println!("Commit successful.");
-            }
-            Err(err) => {
-                eprintln!("Error: {}", err);
-                process::exit(1);
-            }
+pub fn run_git_commit(message: &str) {
+    match Command::new("git")
+        .args(["commit", "-m", &message])
+        .output()
+    {
+        Ok(_) => {
+            println!("Commit successful.");
         }
-    } else {
-        eprintln!("Commit canceled.");
-        process::exit(1);
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            process::exit(1);
+        }
     }
 }

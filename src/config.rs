@@ -9,3 +9,12 @@ pub fn load_api_key() -> String {
         }
     }
 }
+
+pub fn confirm_commit(buffer: &str) -> bool {
+    let input = buffer.trim();
+    if input.to_lowercase() == 'y' || input.is_empty() {
+        true
+    } else {
+        false
+    }
+}
