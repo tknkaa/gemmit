@@ -7,7 +7,6 @@ pub fn create_prompt(diff: &str, filepath: &str, args: &Args) -> String {
         let additional_prompt = format!("\nstart with {}\n", args.start);
         template.push_str(&additional_prompt);
     }
-    template.push_str(diff);
-    println!("{template}");
+    template.push_str(diff);    
     template
 }
