@@ -1,12 +1,21 @@
-use gemmit::{Args, config, git, llm, prompt};
+mod cli;
+mod config;
+mod git;
+mod llm;
+mod prompt;
+
+use clap::Parser;
+use cli::Args;
 use std::{io, process};
 
-fn main() {
-    let args = Args::parse();
+#[tokio::main]
+async fn main() {
+    let _args = Args::parse();
+    let api_key = config::load_api_key();
     let diff = git::get_git_diff_output();
     let filepath = "../assets/prompt.txt";
     let prompt = prompt::create_prompt(&diff, filepath);
-    let commit_message = llm::get_commit_message(&api_key, &prompt);
+    let commit_message = llm::get_commit_message(&api_key, &prompt).await;
     print!(
         "Gemini suggested the following message.
         \n {commit_message}
