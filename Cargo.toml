@@ -2,6 +2,7 @@
 name = "gemmit"
 version = "0.1.0"
 edition = "2024"
+description = "A CLI tool to generate commit messages with Gemini API"
 
 [dependencies]
 clap = { version = "4.5.39", features = ["derive"] }
