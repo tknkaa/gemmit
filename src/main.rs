@@ -17,11 +17,9 @@ async fn main() {
     let prompt = prompt::create_prompt(&diff, filepath, &args);
     let raw_message = llm::get_commit_message(&api_key, &prompt).await;
     let commit_message = raw_message.trim();
-    print!(
-        "Gemini suggested the following message.
-        \n {commit_message}
-        \n Do you want to commit with this message? [Y/n]"
-    );
+    println!("Gemini suggested the following message.");
+    println!("{commit_message}");
+    println!("Do you want to commit with this message? [Y/n]");
     let mut buffer = String::new();
     io::stdin().read_line(&mut buffer).unwrap();
     if config::confirm_commit(&buffer) {
