@@ -1,2 +1,2 @@
 Given the following changes, provide a concise and meaningful commit message. Please only return the commit message.
-Follow the following instructions if any.
+Follow the instructions below for the commit message format if any.

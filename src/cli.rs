@@ -1,4 +1,10 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Format {
+    Casual,
+    Formal,
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about = env!("CARGO_PKG_DESCRIPTION"), long_about = None)]
@@ -14,4 +20,11 @@ pub struct Args {
         default_value = "English"
     )]
     pub lang: Option<String>,
+    #[arg(
+        short,
+        long,
+        help = "format of your commit message: casula or formal",
+        default_value = "format"
+    )]
+    pub format: Option<Format>,
 }
