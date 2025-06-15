@@ -9,6 +9,6 @@ pub struct Args {
         help = "Specify a word for your commit message to start with"
     )]
     pub start: Option<String>,
-    #[arg(short, long, help = "Specify words for your commit message to include")]
+    #[arg(short, long, help = "Specify words for your commit message to include", num_args = 0..)]
     pub include: Option<Vec<String>>,
 }
