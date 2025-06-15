@@ -14,6 +14,13 @@ pub fn create_prompt(diff: &str, filepath: &str, args: &Args) -> String {
         );
         template.push_str(&additional_prompt);
     }
+    if let Some(lang) = &args.lang {
+        let additional_prompt = format!(
+            "\n write the commit message in the following language: {}. if it's not a natural language, please write in English \n",
+            &lang
+        );
+        template.push_str(&additional_prompt);
+    }
     template.push_str(diff);
     template
 }
