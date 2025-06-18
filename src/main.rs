@@ -15,6 +15,7 @@ async fn main() {
     let diff = git::get_git_diff_output();
     let filepath = "assets/prompt.txt";
     let prompt = prompt::create_prompt(&diff, filepath, &args);
+    println!("loading...");
     let raw_message = llm::get_commit_message(&api_key, &prompt).await;
     let commit_message = raw_message.trim();
     println!("Gemini suggested the following message.");
