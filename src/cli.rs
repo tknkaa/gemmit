@@ -24,7 +24,7 @@ pub struct Args {
         short,
         long,
         help = "format of your commit message: casula or formal",
-        default_value = "format"
+        default_value = "formal"
     )]
     pub format: Option<Format>,
 }
