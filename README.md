@@ -8,9 +8,9 @@ export GEMINI_API_KEY=your_api_key
 build and publish
 ```sh
 cargo build --release
-cp target/release/gemmit pkg/
+cp target/release/gemmit bin/
 npm login
-cd pkg
+cd bin
 npm version patch # update patch version
 npm version minor # update minor version
 npm version major # update major version
