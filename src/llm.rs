@@ -1,9 +1,8 @@
-use std::process;
-
 use reqwest::Client;
 use serde_json::json;
+use std::process;
 
-pub async fn ask_ai(api_key: &str, prompt: &str) -> String {
+pub async fn get_commit_message(api_key: &str, prompt: &str) -> String {
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={}",
         api_key

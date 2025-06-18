@@ -1,6 +1,7 @@
+use std::process;
 use std::process::{Command, exit};
 
-pub fn get_git_diff() -> String {
+pub fn get_git_diff_output() -> String {
     let output = match Command::new("git").args(["diff", "--cached"]).output() {
         Ok(output) => output,
         Err(err) => {
@@ -16,4 +17,19 @@ pub fn get_git_diff() -> String {
     }
 
     diff
+}
+
+pub fn run_git_commit(message: &str) {
+    match Command::new("git")
+        .args(["commit", "-m", &message])
+        .output()
+    {
+        Ok(_) => {
+            println!("Commit successful.");
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            process::exit(1);
+        }
+    }
 }
