@@ -10,11 +10,12 @@ use std::{io, process};
 
 #[tokio::main]
 async fn main() {
+    let template_bytes = include_bytes!("../assets/prompt.txt");
+    let template = String::from_utf8_lossy(template_bytes).to_string();
     let args = Args::parse();
     let api_key = config::load_api_key();
     let diff = git::get_git_diff_output();
-    let filepath = "assets/prompt.txt";
-    let prompt = prompt::create_prompt(&diff, filepath, &args);
+    let prompt = prompt::create_prompt(&diff, &template, &args);
     println!("loading...");
     let raw_message = llm::get_commit_message(&api_key, &prompt).await;
     let commit_message = raw_message.trim();
