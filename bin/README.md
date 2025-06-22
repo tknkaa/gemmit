@@ -9,9 +9,9 @@ export GEMINI_API_KEY=your_api_key
 
 install and execute
 ```
-npm i @tknkaa/gemmit
+npm i -g @tknkaa/gemmit
 git add -A
-npx gemmit
+gemmit
 ```
 
 ## Option
