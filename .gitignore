@@ -1,5 +1,6 @@
-/target
-.env
+# direnv
+.direnv/
 
-/.direnv
-/result
+# nix
+result
+result-*
