@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -13,7 +14,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gemmit",
-	Short: "A brief description of your application",
+	Short: "Gemini API wrapper for professional-like commit message",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
 
@@ -23,12 +24,9 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		toggle, _ := cmd.Flags().GetBool("toggle")
-		if toggle {
-			fmt.Println("Toggle is enabled")
-		} else {
-			fmt.Println("Toggle is disabled.")
-		}
+		diffCmd := exec.Command("git", "diff", "--cached")
+		diff, _ := diffCmd.Output()
+		fmt.Println(string(diff))
 	},
 }
 
