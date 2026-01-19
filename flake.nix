@@ -1,13 +1,36 @@
 {
-  description = "Simple flake with a devshell";
+  description = "Gemini API wrapper for professional-like commit message";
 
-  # Add all your dependencies here
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
-    blueprint.url = "github:numtide/blueprint";
-    blueprint.inputs.nixpkgs.follows = "nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  # Load the blueprint
-  outputs = inputs: inputs.blueprint { inherit inputs; };
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = import ./devshell.nix {
+
+          inherit pkgs;
+        };
+
+        formatter = pkgs.nixpkgs-fmt;
+        packages.default = pkgs.buildGoModule {
+          pname = "gemmit";
+          version = "0.1.0";
+
+          src = self;
+
+          vendorHash = null;
+        };
+        apps.default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/gemmit";
+        };
+      }
+
+    );
 }
