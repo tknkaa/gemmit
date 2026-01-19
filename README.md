@@ -5,7 +5,7 @@ set your api key
 export GEMINI_API_KEY=your_api_key
 ```
 
-use gemmit via nix
+use Gemmit via Nix
 ```sh
 nix run github:tknkaa/gemmit
 ```
