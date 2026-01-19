@@ -13,10 +13,8 @@
       in
       {
         devShells.default = import ./devshell.nix {
-
           inherit pkgs;
         };
-
         formatter = pkgs.nixpkgs-fmt;
         packages.default = pkgs.buildGoModule {
           pname = "gemmit";
