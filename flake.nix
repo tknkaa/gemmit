@@ -21,9 +21,7 @@
         packages.default = pkgs.buildGoModule {
           pname = "gemmit";
           version = "0.1.0";
-
           src = self;
-
           vendorHash = null;
         };
         apps.default = {
