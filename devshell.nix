@@ -2,7 +2,6 @@
 pkgs.mkShell {
   # Add build dependencies
   packages = with pkgs; [
-    cowsay
     cobra-cli
   ];
 
