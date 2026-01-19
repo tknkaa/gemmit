@@ -45,7 +45,7 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		prompt := "Generate a professional, clear, and concise commit message for the following git diff:\n" + string(diffOut)
+		prompt := "Return only the commit message, starting with a conventional commit prefix (e.g., feat, fix, chore, etc). Generate a professional, clear, and concise commit message for the following git diff. Do not include any code block markers or extra formatting:" + string(diffOut)
 
 		result, err := client.Models.GenerateContent(
 			ctx,
@@ -61,6 +61,19 @@ to quickly create a Cobra application.`,
 		fmt.Println("Gemini suggested the following commit message")
 		fmt.Println(generatedCommitMessage)
 		fmt.Println("Do you want to commit with this message?[y/N]")
+		var res string
+		fmt.Scanf("%s", &res)
+		if res == "y" {
+			commitCommand := exec.Command("git", "commit", "-m", generatedCommitMessage)
+			_, err := commitCommand.Output()
+			if err != nil {
+				fmt.Println("Failed to commit", err)
+				return
+			}
+			fmt.Println("Committed successfully")
+		} else {
+			fmt.Println("Commit canceled")
+		}
 	},
 }
 
