@@ -60,7 +60,7 @@ to quickly create a Cobra application.`,
 		generatedCommitMessage := result.Text()
 		fmt.Println("Gemini suggested the following commit message")
 		fmt.Println(generatedCommitMessage)
-		fmt.Println("Do you want to commit with this message?[y/N]")
+		fmt.Print("Do you want to commit with this message?[y/N]")
 		var res string
 		fmt.Scanf("%s", &res)
 		if res == "y" {
