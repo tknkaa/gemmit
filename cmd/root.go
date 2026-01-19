@@ -40,6 +40,11 @@ to quickly create a Cobra application.`,
 			return
 		}
 
+		if string(diffOut) == "" {
+			fmt.Println("No changes are staged")
+			return
+		}
+
 		prompt := "Generate a professional, clear, and concise commit message for the following git diff:\n" + string(diffOut)
 
 		result, err := client.Models.GenerateContent(
@@ -52,7 +57,10 @@ to quickly create a Cobra application.`,
 			fmt.Println("Gemini API error:", err)
 			return
 		}
-		fmt.Println(result.Text())
+		generatedCommitMessage := result.Text()
+		fmt.Println("Gemini suggested the following commit message")
+		fmt.Println(generatedCommitMessage)
+		fmt.Println("Do you want to commit with this message?[y/N]")
 	},
 }
 
