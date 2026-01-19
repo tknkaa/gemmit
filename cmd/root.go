@@ -4,11 +4,13 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/genai"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -24,9 +26,33 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+		client, err := genai.NewClient(ctx, nil)
+		if err != nil {
+			fmt.Println("Failed to create Gemini client:", err)
+			return
+		}
+
 		diffCmd := exec.Command("git", "diff", "--cached")
-		diff, _ := diffCmd.Output()
-		fmt.Println(string(diff))
+		diffOut, err := diffCmd.Output()
+		if err != nil {
+			fmt.Println("Failed to get git diff:", err)
+			return
+		}
+
+		prompt := "Generate a professional, clear, and concise commit message for the following git diff:\n" + string(diffOut)
+
+		result, err := client.Models.GenerateContent(
+			ctx,
+			"gemini-3-flash-preview",
+			genai.Text(prompt),
+			nil,
+		)
+		if err != nil {
+			fmt.Println("Gemini API error:", err)
+			return
+		}
+		fmt.Println(result.Text())
 	},
 }
 
@@ -48,5 +74,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
