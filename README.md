@@ -7,7 +7,7 @@ export GEMINI_API_KEY=your_api_key
 
 install locally
 ```sh
-nix profile install github:tknkaa/gemmit
+nix profile add github:tknkaa/gemmit
 ```
 
 run it
