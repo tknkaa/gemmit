@@ -46,11 +46,11 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		prompt := "Return only the commit message, starting with a conventional commit prefix (e.g., feat, fix, chore, etc). Generate a professional, clear, and concise commit message for the following git diff. Do not include any code block markers or extra formatting:" + string(diffOut)
+		prompt := "Generate a conventional commit message (feat/fix/chore prefix) for this diff. Return only the message, no formatting:\n" + string(diffOut)
 
 		result, err := client.Models.GenerateContent(
 			ctx,
-			"gemini-3-flash-preview",
+			"gemini-2.5-flash",
 			genai.Text(prompt),
 			nil,
 		)
