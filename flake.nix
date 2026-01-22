@@ -20,7 +20,8 @@
           pname = "gemmit";
           version = "0.1.0";
           src = self;
-          vendorHash = null;
+
+          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
         };
         apps.default = {
           type = "app";
