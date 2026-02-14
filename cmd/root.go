@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"google.golang.org/genai"
 )
@@ -26,23 +27,28 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Thinking...")
+		cyan := color.New(color.FgCyan).SprintFunc()
+		yellow := color.New(color.FgYellow).SprintFunc()
+		red := color.New(color.FgRed).SprintFunc()
+		green := color.New(color.FgGreen).SprintFunc()
+
+		fmt.Println(cyan("🤔 Thinking..."))
 		ctx := context.Background()
 		client, err := genai.NewClient(ctx, nil)
 		if err != nil {
-			fmt.Println("Failed to create Gemini client:", err)
+			fmt.Println(red("❌ Failed to create Gemini client:"), err)
 			return
 		}
 
 		diffCmd := exec.Command("git", "diff", "--cached")
 		diffOut, err := diffCmd.Output()
 		if err != nil {
-			fmt.Println("Failed to get git diff:", err)
+			fmt.Println(red("❌ Failed to get git diff:"), err)
 			return
 		}
 
 		if string(diffOut) == "" {
-			fmt.Println("No changes are staged")
+			fmt.Println(yellow("⚠️  No changes are staged"))
 			return
 		}
 
@@ -55,25 +61,25 @@ to quickly create a Cobra application.`,
 			nil,
 		)
 		if err != nil {
-			fmt.Println("Gemini API error:", err)
+			fmt.Println(red("❌ Gemini API error:"), err)
 			return
 		}
 		generatedCommitMessage := result.Text()
-		fmt.Println("Gemini suggested the following commit message")
-		fmt.Println(generatedCommitMessage)
-		fmt.Print("Do you want to commit with this message?[y/N]")
+		fmt.Println(cyan("✨ Gemini suggested the following commit message:"))
+		fmt.Println(yellow(generatedCommitMessage))
+		fmt.Print(green("Do you want to commit with this message? [y/N]: "))
 		var res string
 		fmt.Scanf("%s", &res)
 		if res == "y" {
 			commitCommand := exec.Command("git", "commit", "-m", generatedCommitMessage)
 			_, err := commitCommand.Output()
 			if err != nil {
-				fmt.Println("Failed to commit", err)
+				fmt.Println(red("❌ Failed to commit:"), err)
 				return
 			}
-			fmt.Println("Committed successfully")
+			fmt.Println(green("✅ Committed successfully!"))
 		} else {
-			fmt.Println("Commit canceled")
+			fmt.Println(yellow("🚫 Commit canceled"))
 		}
 	},
 }
