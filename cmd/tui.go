@@ -119,7 +119,7 @@ func (m model) checkGitAndGenerate() tea.Cmd {
 		}
 
 		// Build prompt
-		prompt := "Generate a conventional commit message (feat/fix/chore prefix) for this diff. Return only the message, no formatting:\n"
+		prompt := "Generate a concise conventional commit message (feat/fix/chore prefix) for this diff. Keep it short and to the point - ideally one line. Return only the commit message, no explanations or formatting:\n"
 		if len(changedLockFiles) > 0 {
 			prompt += "\nNote: The following lock/dependency files were also changed (diff not shown): "
 			for i, f := range changedLockFiles {
