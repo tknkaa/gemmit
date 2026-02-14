@@ -40,19 +40,51 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		diffCmd := exec.Command("git", "diff", "--cached")
+		// Get list of changed files (including lock files)
+		statusCmd := exec.Command("git", "diff", "--cached", "--name-only")
+		statusOut, err := statusCmd.Output()
+		if err != nil {
+			fmt.Println(red("❌ Failed to get git status:"), err)
+			return
+		}
+
+		if string(statusOut) == "" {
+			fmt.Println(yellow("⚠️  No changes are staged"))
+			return
+		}
+
+		// Get diff excluding lock files
+		diffCmd := exec.Command("git", "diff", "--cached", "--", ":(exclude)go.sum", ":(exclude)go.mod", ":(exclude)package-lock.json", ":(exclude)yarn.lock", ":(exclude)pnpm-lock.yaml", ":(exclude)bun.lock", ":(exclude)Cargo.lock", ":(exclude)poetry.lock", ":(exclude)uv.lock", ":(exclude)Gemfile.lock")
 		diffOut, err := diffCmd.Output()
 		if err != nil {
 			fmt.Println(red("❌ Failed to get git diff:"), err)
 			return
 		}
 
-		if string(diffOut) == "" {
-			fmt.Println(yellow("⚠️  No changes are staged"))
-			return
+		// Check which lock files were changed
+		lockFiles := []string{"go.sum", "go.mod", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "Cargo.lock", "poetry.lock", "uv.lock", "Gemfile.lock"}
+		changedLockFiles := []string{}
+		for _, lockFile := range lockFiles {
+			checkCmd := exec.Command("git", "diff", "--cached", "--name-only", "--", lockFile)
+			checkOut, _ := checkCmd.Output()
+			if string(checkOut) != "" {
+				changedLockFiles = append(changedLockFiles, lockFile)
+			}
 		}
 
-		prompt := "Generate a conventional commit message (feat/fix/chore prefix) for this diff. Return only the message, no formatting:\n" + string(diffOut)
+		// Build prompt
+		prompt := "Generate a conventional commit message (feat/fix/chore prefix) for this diff. Return only the message, no formatting:\n"
+		if len(changedLockFiles) > 0 {
+			prompt += "\nNote: The following lock/dependency files were also changed (diff not shown): "
+			for i, f := range changedLockFiles {
+				if i > 0 {
+					prompt += ", "
+				}
+				prompt += f
+			}
+			prompt += "\n"
+		}
+		prompt += "\n" + string(diffOut)
 
 		result, err := client.Models.GenerateContent(
 			ctx,
