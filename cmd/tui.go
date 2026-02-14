@@ -101,14 +101,14 @@ func (m model) checkGitAndGenerate() tea.Cmd {
 		}
 
 		// Get diff excluding lock files
-		diffCmd := exec.Command("git", "diff", "--cached", "--", ":(exclude)go.sum", ":(exclude)go.mod", ":(exclude)package-lock.json", ":(exclude)yarn.lock", ":(exclude)pnpm-lock.yaml", ":(exclude)bun.lock", ":(exclude)Cargo.lock", ":(exclude)poetry.lock", ":(exclude)uv.lock", ":(exclude)Gemfile.lock")
+		diffCmd := exec.Command("git", "diff", "--cached", "--", ":(exclude)go.sum", ":(exclude)go.mod", ":(exclude)package-lock.json", ":(exclude)yarn.lock", ":(exclude)pnpm-lock.yaml", ":(exclude)bun.lock", ":(exclude)Cargo.lock", ":(exclude)poetry.lock", ":(exclude)uv.lock", ":(exclude)Gemfile.lock", ":(exclude)flake.lock")
 		diffOut, err := diffCmd.Output()
 		if err != nil {
 			return generatedMsg{err: fmt.Errorf("failed to get git diff: %w", err)}
 		}
 
 		// Check which lock files were changed
-		lockFiles := []string{"go.sum", "go.mod", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "Cargo.lock", "poetry.lock", "uv.lock", "Gemfile.lock"}
+		lockFiles := []string{"go.sum", "go.mod", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "Cargo.lock", "poetry.lock", "uv.lock", "Gemfile.lock", "flake.lock"}
 		changedLockFiles := []string{}
 		for _, lockFile := range lockFiles {
 			checkCmd := exec.Command("git", "diff", "--cached", "--name-only", "--", lockFile)
