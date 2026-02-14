@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -51,6 +52,31 @@ to quickly create a Cobra application.`,
 		if string(statusOut) == "" {
 			fmt.Println(yellow("⚠️  No changes are staged"))
 			return
+		}
+
+		// Check for unwanted directories in staged files
+		stagedFiles := string(statusOut)
+		warningDirs := []string{"node_modules/", ".direnv/"}
+		foundWarningDirs := []string{}
+		for _, dir := range warningDirs {
+			if strings.Contains(stagedFiles, dir) {
+				foundWarningDirs = append(foundWarningDirs, dir)
+			}
+		}
+
+		if len(foundWarningDirs) > 0 {
+			fmt.Println(yellow("⚠️  WARNING: The following directories are in your staged changes:"))
+			for _, dir := range foundWarningDirs {
+				fmt.Println(red("   - " + dir))
+			}
+			fmt.Println(yellow("   These directories should typically not be committed!"))
+			fmt.Print(yellow("Do you want to continue anyway? [y/N]: "))
+			var continueRes string
+			fmt.Scanf("%s", &continueRes)
+			if continueRes != "y" {
+				fmt.Println(yellow("🚫 Commit canceled"))
+				return
+			}
 		}
 
 		// Get diff excluding lock files
