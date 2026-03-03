@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::{self, stdout};
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
@@ -9,11 +9,22 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use ratatui::{
+    Terminal, TerminalOptions, Viewport,
+    backend::CrosstermBackend,
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::Paragraph,
+};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser)]
-#[command(name = "gemmit", about = "Generate conventional commit messages using Gemini AI", version)]
+#[command(
+    name = "gemmit",
+    about = "Generate conventional commit messages using Gemini AI",
+    version
+)]
 struct Cli {}
 
 const WARNING_DIRS: &[&str] = &["node_modules/", ".direnv/"];
@@ -70,7 +81,9 @@ fn call_gemini(prompt: &str) -> Result<String, String> {
 
     let body = GeminiRequest {
         contents: vec![GeminiContent {
-            parts: vec![GeminiPart { text: prompt.to_string() }],
+            parts: vec![GeminiPart {
+                text: prompt.to_string(),
+            }],
         }],
     };
 
@@ -86,8 +99,9 @@ fn call_gemini(prompt: &str) -> Result<String, String> {
         return Err(format!("Gemini API error {status}: {text}"));
     }
 
-    let data: GeminiResponse =
-        resp.json().map_err(|e| format!("Failed to parse response: {e}"))?;
+    let data: GeminiResponse = resp
+        .json()
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
     data.candidates
         .into_iter()
@@ -101,7 +115,10 @@ fn call_gemini(prompt: &str) -> Result<String, String> {
 
 enum BgMsg {
     /// Git info gathered; prompt is ready, caller decides what to do next.
-    Prepared { prompt: String, warning_dirs: Vec<String> },
+    Prepared {
+        prompt: String,
+        warning_dirs: Vec<String>,
+    },
     /// Gemini returned a commit message.
     Generated(String),
     GenerateErr(String),
@@ -142,7 +159,10 @@ fn git_prepare() -> BgMsg {
         .map(|&s| s.to_string())
         .collect();
 
-    BgMsg::Prepared { prompt, warning_dirs }
+    BgMsg::Prepared {
+        prompt,
+        warning_dirs,
+    }
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -181,7 +201,9 @@ impl App {
 
     fn spawn_prepare(&self) {
         let tx = self.tx.clone();
-        thread::spawn(move || { tx.send(git_prepare()).ok(); });
+        thread::spawn(move || {
+            tx.send(git_prepare()).ok();
+        });
     }
 
     fn spawn_generate(&self) {
@@ -200,7 +222,9 @@ impl App {
         let message = self.commit_message.clone();
         let tx = self.tx.clone();
         thread::spawn(move || {
-            let result = Command::new("git").args(["commit", "-m", &message]).output();
+            let result = Command::new("git")
+                .args(["commit", "-m", &message])
+                .output();
             let msg = match result {
                 Ok(o) if o.status.success() => BgMsg::CommitDone,
                 Ok(o) => BgMsg::CommitErr(String::from_utf8_lossy(&o.stderr).to_string()),
@@ -216,7 +240,10 @@ impl App {
         self.spinner_frame = (self.spinner_frame + 1) % SPINNER_FRAMES.len();
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
-                BgMsg::Prepared { prompt, warning_dirs } => {
+                BgMsg::Prepared {
+                    prompt,
+                    warning_dirs,
+                } => {
                     self.prompt = prompt;
                     if warning_dirs.is_empty() {
                         self.spawn_generate();
@@ -276,60 +303,76 @@ impl App {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-fn render(app: &App) {
+fn render(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &App) -> io::Result<()> {
     let spinner = SPINNER_FRAMES[app.spinner_frame];
+    terminal.draw(|frame| {
+        let area = frame.area();
+        let bold = |style: Style| style.add_modifier(Modifier::BOLD);
+        let lines: Vec<Line> = match &app.state {
+            State::Loading => vec![Line::from(vec![
+                Span::styled(spinner, Style::default().fg(Color::Magenta)),
+                Span::raw(" "),
+                Span::styled("Thinking...", bold(Style::default().fg(Color::Cyan))),
+            ])],
 
-    match &app.state {
-        State::Loading => {
-            println!();
-            println!("\x1b[35m{}\x1b[0m \x1b[1;36mThinking...\x1b[0m", spinner);
-        }
-
-        State::Warning(dirs) => {
-            println!();
-            println!("\x1b[1;33m⚠️  WARNING\x1b[0m");
-            println!();
-            println!("\x1b[1;33mThe following directories are staged and should typically not be committed:\x1b[0m");
-            for d in dirs {
-                println!("\x1b[1;31m  • {}\x1b[0m", d);
+            State::Warning(dirs) => {
+                let mut lines = vec![
+                    Line::from(Span::styled("⚠  WARNING", bold(Style::default().fg(Color::Yellow)))),
+                    Line::from(""),
+                    Line::from(Span::styled(
+                        "The following directories are staged and should typically not be committed:",
+                        bold(Style::default().fg(Color::Yellow)),
+                    )),
+                ];
+                for d in dirs {
+                    lines.push(Line::from(Span::styled(
+                        format!("  • {d}"),
+                        bold(Style::default().fg(Color::Red)),
+                    )));
+                }
+                lines.push(Line::from(""));
+                lines.push(Line::from(Span::styled(
+                    "Continue anyway? (y/N)",
+                    bold(Style::default().fg(Color::Cyan)),
+                )));
+                lines
             }
-            println!();
-            println!("\x1b[1;36mContinue anyway? (y/N): \x1b[0m");
-        }
 
-        State::Confirm(msg) => {
-            println!();
-            println!("\x1b[1;34m✨ Gemini suggested:\x1b[0m");
-            println!();
-            println!("\x1b[33m{}\x1b[0m", msg);
-            println!();
-            println!("\x1b[1;36mCommit with this message? (y/N): \x1b[0m");
-        }
+            State::Confirm(msg) => vec![
+                Line::from(Span::styled("✨ Gemini suggested:", bold(Style::default().fg(Color::Blue)))),
+                Line::from(""),
+                Line::from(Span::styled(msg.as_str(), Style::default().fg(Color::Yellow))),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Commit with this message? (y/N)",
+                    bold(Style::default().fg(Color::Cyan)),
+                )),
+            ],
 
-        State::Committing => {
-            println!();
-            println!("\x1b[35m{}\x1b[0m \x1b[1;36mCommitting...\x1b[0m", spinner);
-        }
+            State::Committing => vec![Line::from(vec![
+                Span::styled(spinner, Style::default().fg(Color::Magenta)),
+                Span::raw(" "),
+                Span::styled("Committing...", bold(Style::default().fg(Color::Cyan))),
+            ])],
 
-        State::Done => {
-            println!();
-            println!("\x1b[1;32m✅ Committed successfully!\x1b[0m");
-            println!();
-        }
+            State::Done => vec![Line::from(Span::styled(
+                "✅ Committed successfully!",
+                bold(Style::default().fg(Color::Green)),
+            ))],
 
-        State::Cancelled => {
-            println!();
-            println!("\x1b[1;33m🚫 Commit canceled\x1b[0m");
-            println!();
-        }
+            State::Cancelled => vec![Line::from(Span::styled(
+                "🚫 Commit canceled",
+                bold(Style::default().fg(Color::Yellow)),
+            ))],
 
-        State::Error(e) => {
-            println!();
-            println!("\x1b[1;31m❌ Error: {}\x1b[0m", e);
-            println!();
-        }
-    }
-    io::stdout().flush().ok();
+            State::Error(e) => vec![Line::from(Span::styled(
+                format!("❌ Error: {e}"),
+                bold(Style::default().fg(Color::Red)),
+            ))],
+        };
+        frame.render_widget(Paragraph::new(lines), area);
+    })?;
+    Ok(())
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -338,16 +381,23 @@ fn main() -> io::Result<()> {
     let _cli = Cli::parse();
 
     enable_raw_mode()?;
+    let mut terminal = Terminal::with_options(
+        CrosstermBackend::new(stdout()),
+        TerminalOptions {
+            viewport: Viewport::Inline(8),
+        },
+    )?;
+
     let mut app = App::new();
     app.spawn_prepare();
 
     loop {
-        render(&app);
+        render(&mut terminal, &app)?;
 
         let done = app.tick();
 
         if done {
-            render(&app);
+            render(&mut terminal, &app)?;
             thread::sleep(Duration::from_millis(600));
             break;
         }
@@ -355,7 +405,7 @@ fn main() -> io::Result<()> {
         if event::poll(Duration::from_millis(80))? {
             if let Event::Key(key) = event::read()? {
                 if app.handle_key(key.code, key.modifiers) {
-                    render(&app);
+                    render(&mut terminal, &app)?;
                     thread::sleep(Duration::from_millis(600));
                     break;
                 }
@@ -364,6 +414,7 @@ fn main() -> io::Result<()> {
     }
 
     disable_raw_mode()?;
+    println!();
 
     Ok(())
 }
