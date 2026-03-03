@@ -11,14 +11,14 @@ export GEMINI_API_KEY=your_api_key
 
 ## Installation
 
+**Cargo**
+```sh
+cargo install --git https://github.com/tknkaa/gemmit
+```
+
 **Nix**
 ```sh
 nix profile add github:tknkaa/gemmit
-```
-
-**Go**
-```sh
-go install github.com/tknkaa/gemmit@latest
 ```
 
 ## Usage
