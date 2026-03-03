@@ -16,11 +16,6 @@ export GEMINI_API_KEY=your_api_key
 cargo install --git https://github.com/tknkaa/gemmit
 ```
 
-**Nix**
-```sh
-nix profile add github:tknkaa/gemmit
-```
-
 ## Usage
 ```sh
 gemmit
