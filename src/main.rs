@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Write};
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
@@ -6,16 +6,8 @@ use std::time::Duration;
 
 use clap::Parser;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::{
-    backend::CrosstermBackend,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Paragraph, Wrap},
-    Terminal,
+    event::{self, Event, KeyCode, KeyModifiers},
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -284,80 +276,60 @@ impl App {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-fn bold(color: Color) -> Style {
-    Style::default().fg(color).add_modifier(Modifier::BOLD)
-}
-
-fn render(frame: &mut ratatui::Frame, app: &App) {
+fn render(app: &App) {
     let spinner = SPINNER_FRAMES[app.spinner_frame];
 
-    let lines: Vec<Line> = match &app.state {
-        State::Loading => vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(format!("{spinner} "), Style::default().fg(Color::Magenta)),
-                Span::styled("Thinking...", bold(Color::Cyan)),
-            ]),
-        ],
-
-        State::Warning(dirs) => {
-            let mut lines = vec![
-                Line::from(""),
-                Line::from(Span::styled("⚠️  WARNING", bold(Color::Yellow))),
-                Line::from(""),
-                Line::from(Span::styled(
-                    "The following directories are staged and should typically not be committed:",
-                    bold(Color::Yellow),
-                )),
-            ];
-            for d in dirs {
-                lines.push(Line::from(Span::styled(format!("  • {d}"), bold(Color::Red))));
-            }
-            lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("Continue anyway? (y/N): ", bold(Color::Cyan))));
-            lines
+    match &app.state {
+        State::Loading => {
+            println!();
+            println!("\x1b[35m{}\x1b[0m \x1b[1;36mThinking...\x1b[0m", spinner);
         }
 
-        State::Confirm(msg) => vec![
-            Line::from(""),
-            Line::from(Span::styled("✨ Gemini suggested:", bold(Color::Blue))),
-            Line::from(""),
-            Line::from(Span::styled(msg.as_str(), Style::default().fg(Color::Yellow))),
-            Line::from(""),
-            Line::from(Span::styled("Commit with this message? (y/N): ", bold(Color::Cyan))),
-        ],
+        State::Warning(dirs) => {
+            println!();
+            println!("\x1b[1;33m⚠️  WARNING\x1b[0m");
+            println!();
+            println!("\x1b[1;33mThe following directories are staged and should typically not be committed:\x1b[0m");
+            for d in dirs {
+                println!("\x1b[1;31m  • {}\x1b[0m", d);
+            }
+            println!();
+            println!("\x1b[1;36mContinue anyway? (y/N): \x1b[0m");
+        }
 
-        State::Committing => vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(format!("{spinner} "), Style::default().fg(Color::Magenta)),
-                Span::styled("Committing...", bold(Color::Cyan)),
-            ]),
-        ],
+        State::Confirm(msg) => {
+            println!();
+            println!("\x1b[1;34m✨ Gemini suggested:\x1b[0m");
+            println!();
+            println!("\x1b[33m{}\x1b[0m", msg);
+            println!();
+            println!("\x1b[1;36mCommit with this message? (y/N): \x1b[0m");
+        }
 
-        State::Done => vec![
-            Line::from(""),
-            Line::from(Span::styled("✅ Committed successfully!", bold(Color::Green))),
-            Line::from(""),
-        ],
+        State::Committing => {
+            println!();
+            println!("\x1b[35m{}\x1b[0m \x1b[1;36mCommitting...\x1b[0m", spinner);
+        }
 
-        State::Cancelled => vec![
-            Line::from(""),
-            Line::from(Span::styled("🚫 Commit canceled", bold(Color::Yellow))),
-            Line::from(""),
-        ],
+        State::Done => {
+            println!();
+            println!("\x1b[1;32m✅ Committed successfully!\x1b[0m");
+            println!();
+        }
 
-        State::Error(e) => vec![
-            Line::from(""),
-            Line::from(Span::styled(format!("❌ Error: {e}"), bold(Color::Red))),
-            Line::from(""),
-        ],
-    };
+        State::Cancelled => {
+            println!();
+            println!("\x1b[1;33m🚫 Commit canceled\x1b[0m");
+            println!();
+        }
 
-    frame.render_widget(
-        Paragraph::new(lines).wrap(Wrap { trim: false }),
-        frame.area(),
-    );
+        State::Error(e) => {
+            println!();
+            println!("\x1b[1;31m❌ Error: {}\x1b[0m", e);
+            println!();
+        }
+    }
+    io::stdout().flush().ok();
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -366,20 +338,16 @@ fn main() -> io::Result<()> {
     let _cli = Cli::parse();
 
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout))?;
-
     let mut app = App::new();
     app.spawn_prepare();
 
     loop {
-        terminal.draw(|f| render(f, &app))?;
+        render(&app);
 
         let done = app.tick();
 
         if done {
-            terminal.draw(|f| render(f, &app))?;
+            render(&app);
             thread::sleep(Duration::from_millis(600));
             break;
         }
@@ -387,7 +355,7 @@ fn main() -> io::Result<()> {
         if event::poll(Duration::from_millis(80))? {
             if let Event::Key(key) = event::read()? {
                 if app.handle_key(key.code, key.modifiers) {
-                    terminal.draw(|f| render(f, &app))?;
+                    render(&app);
                     thread::sleep(Duration::from_millis(600));
                     break;
                 }
@@ -396,16 +364,6 @@ fn main() -> io::Result<()> {
     }
 
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
-    terminal.show_cursor()?;
-
-    // Print final state to normal terminal after TUI teardown.
-    match &app.state {
-        State::Done => println!("\x1b[1;32m✅ Committed successfully!\x1b[0m"),
-        State::Cancelled => println!("\x1b[1;33m🚫 Commit canceled\x1b[0m"),
-        State::Error(e) => eprintln!("\x1b[1;31m❌ Error: {e}\x1b[0m"),
-        _ => {}
-    }
 
     Ok(())
 }
