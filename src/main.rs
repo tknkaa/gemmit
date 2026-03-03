@@ -1,32 +1,46 @@
-use std::io::{self, Write};
-use std::process::{Command, exit};
+use std::io;
+use std::process::Command;
+use std::sync::mpsc;
+use std::thread;
 use std::time::Duration;
 
-use colored::Colorize;
+use clap::Parser;
 use crossterm::{
-    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use indicatif::{ProgressBar, ProgressStyle};
+use ratatui::{
+    backend::CrosstermBackend,
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Paragraph, Wrap},
+    Terminal,
+};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
-const WARNING_DIRS: &[&str] = &["node_modules/", ".direnv/"];
-const LOCK_FILES: &[&str] = &[
-    "go.sum",
-    "go.mod",
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    "bun.lock",
-    "Cargo.lock",
-    "poetry.lock",
-    "uv.lock",
-    "Gemfile.lock",
-    "flake.lock",
-];
+#[derive(Parser)]
+#[command(name = "gemmit", about = "Generate conventional commit messages using Gemini AI", version)]
+struct Cli {}
 
-// --- Gemini API types ---
+const WARNING_DIRS: &[&str] = &["node_modules/", ".direnv/"];
+const LOCK_EXCLUDES: &[&str] = &[
+    ":(exclude)go.sum",
+    ":(exclude)go.mod",
+    ":(exclude)package-lock.json",
+    ":(exclude)yarn.lock",
+    ":(exclude)pnpm-lock.yaml",
+    ":(exclude)bun.lock",
+    ":(exclude)Cargo.lock",
+    ":(exclude)poetry.lock",
+    ":(exclude)uv.lock",
+    ":(exclude)Gemfile.lock",
+    ":(exclude)flake.lock",
+];
+const SPINNER_FRAMES: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+
+// ── Gemini API ────────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
 struct GeminiRequest {
@@ -53,8 +67,6 @@ struct GeminiCandidate {
     content: GeminiContent,
 }
 
-// --- Gemini call ---
-
 fn call_gemini(prompt: &str) -> Result<String, String> {
     let api_key = std::env::var("GEMINI_API_KEY")
         .map_err(|_| "GEMINI_API_KEY environment variable not set".to_string())?;
@@ -64,31 +76,28 @@ fn call_gemini(prompt: &str) -> Result<String, String> {
         api_key
     );
 
-    let request = GeminiRequest {
+    let body = GeminiRequest {
         contents: vec![GeminiContent {
-            parts: vec![GeminiPart {
-                text: prompt.to_string(),
-            }],
+            parts: vec![GeminiPart { text: prompt.to_string() }],
         }],
     };
 
-    let response = Client::new()
+    let resp = Client::new()
         .post(&url)
-        .json(&request)
+        .json(&body)
         .send()
-        .map_err(|e| format!("HTTP request failed: {}", e))?;
+        .map_err(|e| format!("HTTP request failed: {e}"))?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().unwrap_or_default();
-        return Err(format!("Gemini API error {}: {}", status, body));
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().unwrap_or_default();
+        return Err(format!("Gemini API error {status}: {text}"));
     }
 
-    let resp: GeminiResponse = response
-        .json()
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let data: GeminiResponse =
+        resp.json().map_err(|e| format!("Failed to parse response: {e}"))?;
 
-    resp.candidates
+    data.candidates
         .into_iter()
         .next()
         .and_then(|c| c.content.parts.into_iter().next())
@@ -96,213 +105,307 @@ fn call_gemini(prompt: &str) -> Result<String, String> {
         .ok_or_else(|| "Empty response from Gemini".to_string())
 }
 
-// --- Git helpers ---
+// ── Background work ───────────────────────────────────────────────────────────
 
-fn git_staged_files() -> Result<String, String> {
-    let out = Command::new("git")
+enum BgMsg {
+    /// Git info gathered; prompt is ready, caller decides what to do next.
+    Prepared { prompt: String, warning_dirs: Vec<String> },
+    /// Gemini returned a commit message.
+    Generated(String),
+    GenerateErr(String),
+    CommitDone,
+    CommitErr(String),
+}
+
+fn git_prepare() -> BgMsg {
+    let staged = match Command::new("git")
         .args(["diff", "--cached", "--name-only"])
         .output()
-        .map_err(|e| format!("Failed to run git: {}", e))?;
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
-}
+    {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+        Err(e) => return BgMsg::GenerateErr(format!("Failed to run git: {e}")),
+    };
 
-fn git_diff_no_locks() -> Result<String, String> {
-    let out = Command::new("git")
-        .args([
-            "diff",
-            "--cached",
-            "--",
-            ":(exclude)go.sum",
-            ":(exclude)go.mod",
-            ":(exclude)package-lock.json",
-            ":(exclude)yarn.lock",
-            ":(exclude)pnpm-lock.yaml",
-            ":(exclude)bun.lock",
-            ":(exclude)Cargo.lock",
-            ":(exclude)poetry.lock",
-            ":(exclude)uv.lock",
-            ":(exclude)Gemfile.lock",
-            ":(exclude)flake.lock",
-        ])
-        .output()
-        .map_err(|e| format!("Failed to get git diff: {}", e))?;
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
-}
-
-fn changed_lock_files() -> Vec<String> {
-    LOCK_FILES
-        .iter()
-        .filter(|&&lf| {
-            Command::new("git")
-                .args(["diff", "--cached", "--name-only", "--", lf])
-                .output()
-                .map(|o| !o.stdout.is_empty())
-                .unwrap_or(false)
-        })
-        .map(|&s| s.to_string())
-        .collect()
-}
-
-fn build_prompt(diff: &str, lock_files: &[String]) -> String {
-    let mut prompt = "Generate a concise conventional commit message (feat/fix/chore prefix) for this diff. \
-        Keep it short and to the point - ideally one line. Return only the commit message, no explanations or formatting:\n"
-        .to_string();
-    if !lock_files.is_empty() {
-        prompt += &format!(
-            "\nNote: The following lock/dependency files were also changed (diff not shown): {}\n",
-            lock_files.join(", ")
-        );
+    if staged.trim().is_empty() {
+        return BgMsg::GenerateErr("no changes are staged".to_string());
     }
-    prompt += &format!("\n{}", diff);
-    prompt
-}
 
-// --- UI helpers ---
+    let mut diff_args = vec!["diff", "--cached", "--"];
+    diff_args.extend_from_slice(LOCK_EXCLUDES);
 
-fn spinner(message: &str) -> ProgressBar {
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            .tick_strings(&["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"])
-            .template("{spinner:.magenta} {msg}")
-            .unwrap(),
+    let diff = match Command::new("git").args(&diff_args).output() {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+        Err(e) => return BgMsg::GenerateErr(format!("Failed to get git diff: {e}")),
+    };
+
+    let prompt = format!(
+        "Generate a concise conventional commit message (feat/fix/chore prefix) for this diff. \
+         Keep it short and to the point - ideally one line. \
+         Return only the commit message, no explanations or formatting:\n\n{diff}"
     );
-    pb.set_message(message.to_string());
-    pb.enable_steady_tick(Duration::from_millis(80));
-    pb
-}
 
-/// Read a single y/N keypress without requiring Enter.
-fn read_yn(prompt_text: &str) -> bool {
-    print!("{}", prompt_text);
-    io::stdout().flush().ok();
-    enable_raw_mode().ok();
-    let result = loop {
-        match read() {
-            Ok(Event::Key(KeyEvent { code, modifiers, .. })) => match code {
-                KeyCode::Char('y') | KeyCode::Char('Y') => break true,
-                KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => break false,
-                _ => break false,
-            },
-            _ => break false,
-        }
-    };
-    disable_raw_mode().ok();
-    println!();
-    result
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("{}", format!("❌ Error: {}", msg).red().bold());
-    exit(1);
-}
-
-// --- Main ---
-
-fn main() {
-    let pb = spinner("Thinking...");
-
-    let staged = match git_staged_files() {
-        Ok(s) if s.trim().is_empty() => {
-            pb.finish_and_clear();
-            die("No changes are staged");
-        }
-        Ok(s) => s,
-        Err(e) => {
-            pb.finish_and_clear();
-            die(&e);
-        }
-    };
-
-    let warning_dirs: Vec<&str> = WARNING_DIRS
+    let warning_dirs: Vec<String> = WARNING_DIRS
         .iter()
-        .filter(|&&dir| staged.contains(dir))
-        .copied()
+        .filter(|&&d| staged.contains(d))
+        .map(|&s| s.to_string())
         .collect();
 
-    let diff = match git_diff_no_locks() {
-        Ok(d) => d,
-        Err(e) => {
-            pb.finish_and_clear();
-            die(&e);
-        }
-    };
+    BgMsg::Prepared { prompt, warning_dirs }
+}
 
-    let locks = changed_lock_files();
-    let prompt = build_prompt(&diff, &locks);
+// ── App ───────────────────────────────────────────────────────────────────────
 
-    // Warn about staged dirs that should not be committed
-    if !warning_dirs.is_empty() {
-        pb.finish_and_clear();
-        println!();
-        println!("{}", "⚠️  WARNING".yellow().bold());
-        println!();
-        println!("{}", "The following directories are in your staged changes:".yellow().bold());
-        for dir in &warning_dirs {
-            println!("{}", format!("  • {}", dir).red().bold());
+enum State {
+    Loading,
+    Warning(Vec<String>),
+    Confirm(String),
+    Committing,
+    Done,
+    Cancelled,
+    Error(String),
+}
+
+struct App {
+    state: State,
+    spinner_frame: usize,
+    tx: mpsc::SyncSender<BgMsg>,
+    rx: mpsc::Receiver<BgMsg>,
+    prompt: String,
+    commit_message: String,
+}
+
+impl App {
+    fn new() -> Self {
+        let (tx, rx) = mpsc::sync_channel(8);
+        Self {
+            state: State::Loading,
+            spinner_frame: 0,
+            tx,
+            rx,
+            prompt: String::new(),
+            commit_message: String::new(),
         }
-        println!();
-        println!("{}", "These directories should typically not be committed!".yellow().bold());
-        println!();
-        if !read_yn(&format!("{}", "Continue anyway? (y/N): ".cyan().bold())) {
-            println!("{}", "🚫 commit canceled".yellow().bold());
-            exit(0);
+    }
+
+    fn spawn_prepare(&self) {
+        let tx = self.tx.clone();
+        thread::spawn(move || { tx.send(git_prepare()).ok(); });
+    }
+
+    fn spawn_generate(&self) {
+        let prompt = self.prompt.clone();
+        let tx = self.tx.clone();
+        thread::spawn(move || {
+            let msg = match call_gemini(&prompt) {
+                Ok(m) => BgMsg::Generated(m),
+                Err(e) => BgMsg::GenerateErr(e),
+            };
+            tx.send(msg).ok();
+        });
+    }
+
+    fn spawn_commit(&self) {
+        let message = self.commit_message.clone();
+        let tx = self.tx.clone();
+        thread::spawn(move || {
+            let result = Command::new("git").args(["commit", "-m", &message]).output();
+            let msg = match result {
+                Ok(o) if o.status.success() => BgMsg::CommitDone,
+                Ok(o) => BgMsg::CommitErr(String::from_utf8_lossy(&o.stderr).to_string()),
+                Err(e) => BgMsg::CommitErr(e.to_string()),
+            };
+            tx.send(msg).ok();
+        });
+    }
+
+    /// Advance spinner and drain background messages. Returns true if a
+    /// terminal state was just reached.
+    fn tick(&mut self) -> bool {
+        self.spinner_frame = (self.spinner_frame + 1) % SPINNER_FRAMES.len();
+        while let Ok(msg) = self.rx.try_recv() {
+            match msg {
+                BgMsg::Prepared { prompt, warning_dirs } => {
+                    self.prompt = prompt;
+                    if warning_dirs.is_empty() {
+                        self.spawn_generate();
+                    } else {
+                        self.state = State::Warning(warning_dirs);
+                    }
+                }
+                BgMsg::Generated(message) => {
+                    self.commit_message = message.clone();
+                    self.state = State::Confirm(message);
+                }
+                BgMsg::GenerateErr(e) => self.state = State::Error(e),
+                BgMsg::CommitDone => self.state = State::Done,
+                BgMsg::CommitErr(e) => self.state = State::Error(e),
+            }
         }
-        let pb2 = spinner("Thinking...");
-        let msg = match call_gemini(&prompt) {
-            Ok(m) => {
-                pb2.finish_and_clear();
-                m
+        self.is_done()
+    }
+
+    /// Handle a keypress. Returns true when the TUI should exit.
+    fn handle_key(&mut self, code: KeyCode, mods: KeyModifiers) -> bool {
+        let ctrl_c = code == KeyCode::Char('c') && mods.contains(KeyModifiers::CONTROL);
+        let yes = matches!(code, KeyCode::Char('y') | KeyCode::Char('Y'));
+
+        if ctrl_c {
+            self.state = State::Cancelled;
+            return true;
+        }
+
+        match &self.state {
+            State::Warning(_) if yes => {
+                self.state = State::Loading;
+                self.spawn_generate();
             }
-            Err(e) => {
-                pb2.finish_and_clear();
-                die(&e);
+            State::Warning(_) => {
+                self.state = State::Cancelled;
+                return true;
             }
-        };
-        confirm_and_commit(msg);
-    } else {
-        let msg = match call_gemini(&prompt) {
-            Ok(m) => {
-                pb.finish_and_clear();
-                m
+            State::Confirm(_) if yes => {
+                self.state = State::Committing;
+                self.spawn_commit();
             }
-            Err(e) => {
-                pb.finish_and_clear();
-                die(&e);
+            State::Confirm(_) => {
+                self.state = State::Cancelled;
+                return true;
             }
-        };
-        confirm_and_commit(msg);
+            _ if self.is_done() => return true,
+            _ => {}
+        }
+        false
+    }
+
+    fn is_done(&self) -> bool {
+        matches!(self.state, State::Done | State::Cancelled | State::Error(_))
     }
 }
 
-fn confirm_and_commit(commit_message: String) {
-    println!();
-    println!("{}", "✨ Gemini suggested:".bold().blue());
-    println!();
-    println!("{}", commit_message.yellow());
-    println!();
+// ── Rendering ─────────────────────────────────────────────────────────────────
 
-    if !read_yn(&format!("{}", "Commit with this message? (y/N): ".cyan().bold())) {
-        println!("{}", "🚫 commit canceled".yellow().bold());
-        exit(0);
+fn bold(color: Color) -> Style {
+    Style::default().fg(color).add_modifier(Modifier::BOLD)
+}
+
+fn render(frame: &mut ratatui::Frame, app: &App) {
+    let spinner = SPINNER_FRAMES[app.spinner_frame];
+
+    let lines: Vec<Line> = match &app.state {
+        State::Loading => vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(format!("{spinner} "), Style::default().fg(Color::Magenta)),
+                Span::styled("Thinking...", bold(Color::Cyan)),
+            ]),
+        ],
+
+        State::Warning(dirs) => {
+            let mut lines = vec![
+                Line::from(""),
+                Line::from(Span::styled("⚠️  WARNING", bold(Color::Yellow))),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "The following directories are staged and should typically not be committed:",
+                    bold(Color::Yellow),
+                )),
+            ];
+            for d in dirs {
+                lines.push(Line::from(Span::styled(format!("  • {d}"), bold(Color::Red))));
+            }
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("Continue anyway? (y/N): ", bold(Color::Cyan))));
+            lines
+        }
+
+        State::Confirm(msg) => vec![
+            Line::from(""),
+            Line::from(Span::styled("✨ Gemini suggested:", bold(Color::Blue))),
+            Line::from(""),
+            Line::from(Span::styled(msg.as_str(), Style::default().fg(Color::Yellow))),
+            Line::from(""),
+            Line::from(Span::styled("Commit with this message? (y/N): ", bold(Color::Cyan))),
+        ],
+
+        State::Committing => vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(format!("{spinner} "), Style::default().fg(Color::Magenta)),
+                Span::styled("Committing...", bold(Color::Cyan)),
+            ]),
+        ],
+
+        State::Done => vec![
+            Line::from(""),
+            Line::from(Span::styled("✅ Committed successfully!", bold(Color::Green))),
+            Line::from(""),
+        ],
+
+        State::Cancelled => vec![
+            Line::from(""),
+            Line::from(Span::styled("🚫 Commit canceled", bold(Color::Yellow))),
+            Line::from(""),
+        ],
+
+        State::Error(e) => vec![
+            Line::from(""),
+            Line::from(Span::styled(format!("❌ Error: {e}"), bold(Color::Red))),
+            Line::from(""),
+        ],
+    };
+
+    frame.render_widget(
+        Paragraph::new(lines).wrap(Wrap { trim: false }),
+        frame.area(),
+    );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+fn main() -> io::Result<()> {
+    let _cli = Cli::parse();
+
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout))?;
+
+    let mut app = App::new();
+    app.spawn_prepare();
+
+    loop {
+        terminal.draw(|f| render(f, &app))?;
+
+        let done = app.tick();
+
+        if done {
+            terminal.draw(|f| render(f, &app))?;
+            thread::sleep(Duration::from_millis(600));
+            break;
+        }
+
+        if event::poll(Duration::from_millis(80))? {
+            if let Event::Key(key) = event::read()? {
+                if app.handle_key(key.code, key.modifiers) {
+                    terminal.draw(|f| render(f, &app))?;
+                    thread::sleep(Duration::from_millis(600));
+                    break;
+                }
+            }
+        }
     }
 
-    let pb = spinner("Committing...");
-    match Command::new("git")
-        .args(["commit", "-m", &commit_message])
-        .output()
-    {
-        Ok(o) if o.status.success() => {
-            pb.finish_and_clear();
-            println!("{}", "✅ Committed successfully!".green().bold());
-        }
-        Ok(o) => {
-            pb.finish_and_clear();
-            die(&String::from_utf8_lossy(&o.stderr));
-        }
-        Err(e) => {
-            pb.finish_and_clear();
-            die(&e.to_string());
-        }
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    terminal.show_cursor()?;
+
+    // Print final state to normal terminal after TUI teardown.
+    match &app.state {
+        State::Done => println!("\x1b[1;32m✅ Committed successfully!\x1b[0m"),
+        State::Cancelled => println!("\x1b[1;33m🚫 Commit canceled\x1b[0m"),
+        State::Error(e) => eprintln!("\x1b[1;31m❌ Error: {e}\x1b[0m"),
+        _ => {}
     }
+
+    Ok(())
 }
