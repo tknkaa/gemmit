@@ -9,8 +9,19 @@ import (
 	"google.golang.org/genai"
 )
 
+var lockfiles = [7]string{"package-lock.json", "pnpm-lock.yaml", "bun.lock", "uv.lock", "go.sum", "Cargo.lock", "flake.lock"}
+
 func main() {
-	cmd := exec.Command("git", "diff", "--staged")
+	ignoredFiles := []string{}
+
+	for _, lockfile := range lockfiles {
+		ignoredFiles = append(ignoredFiles, fmt.Sprintf(":!%s", lockfile))
+	}
+
+	args := append([]string{"diff", "--staged", "--"}, ignoredFiles...)
+
+	cmd := exec.Command("git", args...)
+
 	diff, err := cmd.Output()
 	if len(diff) == 0 {
 		fmt.Println("Error: You don't have any staged changes. Please stage your changes before committing.")
@@ -21,6 +32,8 @@ func main() {
 		fmt.Printf("Error: %s\n", err)
 		return
 	}
+
+	return
 
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
