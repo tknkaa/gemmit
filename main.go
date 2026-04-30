@@ -27,7 +27,7 @@ func main() {
 		fmt.Println("Error: You don't have any staged changes. Please stage your changes before committing.")
 		return
 	}
-	fmt.Println(string(diff))
+
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		return
@@ -61,5 +61,24 @@ func main() {
 		fmt.Printf("Error generating content: %s\n", err)
 		return
 	}
-	fmt.Println(result.Text())
+
+	message := result.Text()
+
+	fmt.Printf("Suggested commit message:\n%s\n", message)
+	fmt.Print("Do you want to use this commit message? (y/n): ")
+	var response string
+	fmt.Scanln(&response)
+	if response == "y" || response == "Y" {
+		cmd := exec.Command("git", "commit", "-m", message)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			fmt.Printf("Error committing changes: %s\n", err)
+			return
+		}
+		fmt.Println("Changes committed successfully.")
+	} else {
+		fmt.Println("Commit message discarded. Please edit the message and commit manually.")
+	}
 }
