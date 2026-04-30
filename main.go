@@ -33,8 +33,6 @@ func main() {
 		return
 	}
 
-	return
-
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("Error: Please set the GEMINI_API_KEY environment variable.")
@@ -55,7 +53,7 @@ func main() {
 	result, err := client.Models.GenerateContent(
 		ctx,
 		"gemini-2.5-flash",
-		genai.Text("Explain how AI works"),
+		genai.Text(fmt.Sprintf("Here is a git diff of my staged changes:\n\n%s\n\nPlease provide a concise and clear commit message that accurately describes the changes made in this diff.", string(diff))),
 		nil,
 	)
 
